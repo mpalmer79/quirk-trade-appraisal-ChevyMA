@@ -258,6 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAP_EN_ES = new Map([
     ["title", "Tasación de intercambio sin inspección"],
     ["welcome", "Bienvenido al programa de tasación sin inspección de Quirk Auto Dealers"],
+    ["aboutYou", "Cuéntenos sobre usted"],
     ["instructions", "Complete este formulario con información precisa y completa sobre su vehículo. El valor de intercambio que le proporcionemos será válido siempre que la condición del vehículo coincida con sus respuestas."],
     ["decodeVinBtn", "Decodificar VIN y autocompletar"],
     ["clearBtn", "Borrar formulario"],
