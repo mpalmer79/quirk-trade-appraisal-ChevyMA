@@ -1,6 +1,6 @@
 /* assets/app.js
     Quirk Sight-Unseen Trade Tool — VIN decode + Netlify Forms submit
-    - Robust VIN decode (NHTSA VPIC) prefills Year/Make/Model/Trim
+    - VIN decode (NHTSA VPIC) prefills Year/Make/Model/Trim
     - Case-insensitive Make/Model selection; adds option if missing so selection “sticks”
     - Year list & common Make bootstrap if HTML left blank
     - Model loader for Make+Year
@@ -41,11 +41,11 @@ function setSelectValue(sel, val) {
   if (!el) return;
   const opts = Array.from(el.options);
   const found = opts.find(
-    (o) => o.value.toLowerCase() === String(val).toLowerCase()
+    (o) => o.value.toLowerCase() === String(val || "").toLowerCase()
   );
   if (found) {
     el.value = found.value;
-  } else if (val && val.trim()) {
+  } else if (val && String(val).trim()) {
     const opt = new Option(val, val, true, true);
     el.add(opt);
     el.value = val;
@@ -69,6 +69,136 @@ async function decodeVin(vin) {
     trim: r.Trim,
   };
 }
+
+/* -------------------- Models for Make+Year -------------------- */
+async function loadModelsFor(make, year) {
+  const status = $("#modelStatus");
+  const modelSel = $("#model");
+  if (!modelSel) return;
+
+  // Clear current
+  modelSel.innerHTML = `<option value="" data-i18n="selectModel">Select Model</option>`;
+  if (status) status.textContent = "";
+
+  if (!make || !year) return;
+
+  try {
+    if (status) status.textContent = "Loading models…";
+    const url = `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(
+      make
+    )}/modelyear/${encodeURIComponent(year)}?format=json`;
+
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const list = (data.Results || [])
+      .map((r) => r.Model_Name)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    // Populate options
+    for (const m of list) {
+      modelSel.add(new Option(m, m));
+    }
+    if (status) status.textContent = list.length ? "" : "No models found for that Make/Year.";
+  } catch (e) {
+    if (status) status.textContent = "Could not load models.";
+    console.error("Model load failed:", e);
+  }
+}
+
+/* -------------------- Year/Make bootstrap (if blank in HTML) -------------------- */
+function populateYearsIfEmpty() {
+  const yearSel = $("#year");
+  if (!yearSel || yearSel.options.length > 1) return;
+
+  const thisYear = new Date().getFullYear();
+  const min = thisYear - 30; // last ~30 years
+  yearSel.add(new Option("Select Year", ""), undefined);
+  for (let y = thisYear + 1; y >= min; y--) {
+    yearSel.add(new Option(String(y), String(y)));
+  }
+}
+
+function bootstrapCommonMakesIfEmpty() {
+  const makeSel = $("#make");
+  if (!makeSel || makeSel.options.length > 1) return;
+
+  const common = [
+    "Chevrolet","GMC","Ford","Ram","Toyota","Honda","Nissan","Hyundai","Kia",
+    "Jeep","Volkswagen","Subaru","Mazda","BMW","Mercedes-Benz","Audi","Dodge",
+    "Chrysler","Buick","Cadillac","Lincoln","Volvo"
+  ];
+  makeSel.add(new Option("Select Make", ""), undefined);
+  for (const m of common) {
+    makeSel.add(new Option(m, m));
+  }
+}
+
+/* -------------------- Wire up events on DOM ready -------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  // Bootstrap selects if the HTML didn't include static options
+  populateYearsIfEmpty();
+  bootstrapCommonMakesIfEmpty();
+
+  const yearSel = $("#year");
+  const makeSel = $("#make");
+  const modelSel = $("#model");
+  const trimInput = $("#trim");
+  const vinInput = $("#vin");
+  const decodeBtn = $("#decodeVinBtn");
+
+  // When year/make change, refresh models
+  if (yearSel && makeSel) {
+    const refreshModels = debounce(() => loadModelsFor(makeSel.value, yearSel.value), 300);
+    yearSel.addEventListener("change", refreshModels);
+    makeSel.addEventListener("change", refreshModels);
+  }
+
+  // VIN decode button
+  if (decodeBtn && vinInput) {
+    decodeBtn.addEventListener("click", async () => {
+      const vin = (vinInput.value || "").trim().toUpperCase();
+      if (!validVin(vin)) {
+        const toast = $("#toast") || $("#modelStatus");
+        if (toast) toast.textContent = "Enter a valid 17-character VIN.";
+        vinInput.focus();
+        return;
+      }
+
+      // UI pre-state
+      const btnText = decodeBtn.textContent;
+      decodeBtn.disabled = true;
+      decodeBtn.textContent = "Decoding…";
+      const status = $("#modelStatus");
+      if (status) status.textContent = "";
+
+      try {
+        const { year, make, model, trim } = await decodeVin(vin);
+
+        if (year) setSelectValue("#year", year);
+        if (make) setSelectValue("#make", make);
+
+        // load models for selected make+year, then set model
+        if (make && year) {
+          await loadModelsFor(make, year);
+        }
+        if (model) setSelectValue("#model", model);
+        if (trim && trimInput) trimInput.value = trim || "";
+
+        if (status) status.textContent = (model || make || year) ? "" : "VIN decoded, but details are limited.";
+      } catch (e) {
+        console.error("VIN decode failed:", e);
+        const toast = $("#toast") || $("#modelStatus");
+        if (toast) toast.textContent = "Could not decode VIN. Please fill fields manually.";
+      } finally {
+        decodeBtn.disabled = false;
+        decodeBtn.textContent = btnText;
+      }
+    });
+  }
+});
 
 /* -------------------- Logo injection & recolor -------------------- */
 (async function injectAndRecolorQuirkLogo() {
@@ -114,7 +244,7 @@ async function decodeVin(vin) {
 /* -------------------- Full i18n: English <-> Spanish -------------------- */
 (function i18nFull() {
   const LANG_KEY = "quirk_lang";
-  const STORAGE = window.sessionStorage; // ✅ per tab; resets on new session
+  const STORAGE = window.sessionStorage; // per tab; resets on new session
 
   // Central dictionary. Keys are EN; values are ES.
   const MAP_EN_ES = new Map([
@@ -187,7 +317,7 @@ async function decodeVin(vin) {
     });
   }
 
-  // ✅ Default to English if empty; only use stored value for this tab
+  // Default to English; use stored value for this tab only
   let lang = STORAGE.getItem(LANG_KEY);
   if (!lang) {
     lang = "en";
