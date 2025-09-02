@@ -4,7 +4,7 @@
     - Case-insensitive Make/Model selection; adds option if missing so selection “sticks”
     - Year list & common Make bootstrap if HTML left blank
     - Model loader for Make+Year
-    - Spanish toggle (reads/writes localStorage 'quirk_lang')
+    - Spanish toggle (reads/writes sessionStorage 'quirk_lang')
     - Logo SVG injection + recolor
 */
 
@@ -114,6 +114,7 @@ async function decodeVin(vin) {
 /* -------------------- Full i18n: English <-> Spanish -------------------- */
 (function i18nFull() {
   const LANG_KEY = "quirk_lang";
+  const STORAGE = window.sessionStorage; // ✅ per tab; resets on new session
 
   // Central dictionary. Keys are EN; values are ES.
   const MAP_EN_ES = new Map([
@@ -186,16 +187,20 @@ async function decodeVin(vin) {
     });
   }
 
-  // On load, check localStorage
-  const lang = localStorage.getItem(LANG_KEY);
+  // ✅ Default to English if empty; only use stored value for this tab
+  let lang = STORAGE.getItem(LANG_KEY);
+  if (!lang) {
+    lang = "en";
+    STORAGE.setItem(LANG_KEY, lang);
+  }
   if (lang === "es") translateDoc("es");
 
-  // Expose toggle button if present
+  // Toggle button switches language for THIS TAB ONLY
   const btn = document.getElementById("langToggle");
   if (btn) {
     btn.addEventListener("click", () => {
-      const current = localStorage.getItem(LANG_KEY) === "es" ? "en" : "es";
-      localStorage.setItem(LANG_KEY, current);
+      const next = STORAGE.getItem(LANG_KEY) === "es" ? "en" : "es";
+      STORAGE.setItem(LANG_KEY, next);
       location.reload();
     });
   }
