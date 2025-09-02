@@ -15,7 +15,7 @@ const digits = (v) => safe(v).replace(/\D/g, "");
 const escape = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Parse multipart/form-data into { fields, files[] } */
+/** Parse multipart/form-data into { fields, files[] }, skipping empty file parts */
 async function parseMultipart(event) {
   const contentType =
     event.headers["content-type"] ||
@@ -25,7 +25,7 @@ async function parseMultipart(event) {
   const busboy = Busboy({ headers: { "content-type": contentType } });
 
   const fields = {};
-  const files = []; // { field, filename, mimetype, buffer }
+  const files = []; // { field, filename, mimetype, buffer, size }
 
   const body = event.isBase64Encoded
     ? Buffer.from(event.body || "", "base64")
@@ -33,19 +33,37 @@ async function parseMultipart(event) {
 
   return new Promise((resolve, reject) => {
     busboy.on("field", (name, val) => { fields[name] = val; });
+
     busboy.on("file", (name, file, info) => {
-      const { filename, mimeType } = info;
+      const { filename, mimeType } = info || {};
+      const cleanName = (filename || "").trim();
+
+      let size = 0;
       const chunks = [];
-      file.on("data", (d) => chunks.push(d));
+
+      file.on("data", (d) => {
+        size += d.length;
+        chunks.push(d);
+      });
+
+      // If a file hits Busboy's size limit, drain it
+      file.on("limit", () => file.resume());
+
       file.on("end", () => {
-        files.push({
-          field: name,
-          filename: filename || "upload",
-          mimetype: mimeType || "application/octet-stream",
-          buffer: Buffer.concat(chunks),
-        });
+        // ✅ Keep only actual user uploads (has name AND >0 bytes)
+        if (cleanName && size > 0) {
+          files.push({
+            field: name,
+            filename: cleanName,
+            mimetype: mimeType || "application/octet-stream",
+            buffer: Buffer.concat(chunks),
+            size,
+          });
+        }
+        // else: skip zero-byte or unnamed parts entirely
       });
     });
+
     busboy.on("error", reject);
     busboy.on("finish", () => resolve({ fields, files }));
     busboy.end(body);
@@ -123,14 +141,23 @@ function buildEmailBodies(lead, rawData) {
   return { html, text };
 }
 
-/** Convert parsed files to SendGrid attachments (cap 8) */
+/** Convert parsed files to SendGrid attachments (cap 8), skipping empty/unnamed */
 function toAttachments(files) {
-  return files.slice(0, 8).map((f) => ({
-    content: f.buffer.toString("base64"),
-    filename: f.filename,
-    type: f.mimetype,
-    disposition: "attachment",
-  }));
+  return files
+    .filter(f =>
+      f &&
+      f.buffer &&
+      f.buffer.length > 0 &&
+      f.filename &&
+      String(f.filename).trim()
+    )
+    .slice(0, 8)
+    .map((f) => ({
+      content: f.buffer.toString("base64"),
+      filename: f.filename,
+      type: f.mimetype || "application/octet-stream",
+      disposition: "attachment",
+    }));
 }
 
 /* ----------------- handler ----------------- */
@@ -175,31 +202,30 @@ export async function handler(event) {
 
   // Build email
   const { html, text } = buildEmailBodies(lead, rawData);
-  const attachments = uploads.length ? toAttachments(uploads) : undefined;
+  const att = toAttachments(uploads);
+  const attachments = att.length ? att : undefined; // ✅ only include if there are real files
   const subjectLine = `New Trade-In Lead – ${lead.name} – ${[lead.year, lead.make, lead.model].filter(Boolean).join(" ")}`.trim();
 
+  // Send email
+  try {
+    // allow comma-separated list in TO_EMAIL
+    const recipients = (process.env.TO_EMAIL || "mpalmer@quirkcars.com, steve.obrien@quirkcars.com, jlombard@quirkcars.com, msalihovic@quirkcars.com, nway@quirkcars.com, gmcintosh@quirkcars.com, lmendez@quirkcars.com")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
 
-// Send email
-try {
-  // allow comma-separated list in TO_EMAIL
-  const recipients = (process.env.TO_EMAIL || "mpalmer@quirkcars.com, steve.obrien@quirkcars.com, jlombard@quirkcars.com, msalihovic@quirkcars.com, nway@quirkcars.com, gmcintosh@quirkcars.com, lmendez@quirkcars.com")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  await sg.send({
-    to: recipients,                    // ✅ now uses TO_EMAIL from Netlify
-    from: process.env.FROM_EMAIL,      // must be a verified sender in SendGrid
-    subject: subjectLine,
-    text,
-    html,
-    attachments,                       // photos ride along if present
-    // replyTo: "sales@quirkcars.com",
-  });
-} catch (e) {
-  return { statusCode: 502, headers, body: "Failed to send lead" };
-}
-
+    await sg.send({
+      to: recipients,                    // ✅ now uses TO_EMAIL from Netlify
+      from: process.env.FROM_EMAIL,      // must be a verified sender in SendGrid
+      subject: subjectLine,
+      text,
+      html,
+      attachments,                       // photos ride along if present
+      // replyTo: "sales@quirkcars.com",
+    });
+  } catch (e) {
+    return { statusCode: 502, headers, body: "Failed to send lead" };
+  }
 
   // Optional: Sheets backup
   try {
@@ -224,7 +250,7 @@ try {
     (event.headers["x-requested-with"] || "").toLowerCase() === "xmlhttprequest";
 
   if (wantsJson) {
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, files: uploads.length }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, files: (attachments ? attachments.length : 0) }) };
   }
   return {
     statusCode: 303,
