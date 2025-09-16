@@ -47,8 +47,7 @@ export async function handler(event) {
       attachments = await processAttachments(files);
     } catch (error) {
       console.error("Failed to process attachments:", error);
-      // Decide if you still want to send the email without attachments
-      // For now, we'll continue and just log the error.
+      // Continue without attachments if fetching fails
     }
   }
 
@@ -67,7 +66,6 @@ export async function handler(event) {
       attachments: attachments.length ? attachments : undefined,
     });
   } catch (error) {
-    // Log detailed error information from SendGrid
     console.error("SendGrid API Error:", JSON.stringify(error.response?.body || error.message, null, 2));
     return { statusCode: 502, body: "Failed to send email via provider." };
   }
@@ -78,42 +76,122 @@ export async function handler(event) {
   return { statusCode: 200, body: "ok" };
 }
 
-
 /**
  * Creates the subject, HTML body, and text body for the email.
- * @param {object} data - The form submission data.
- * @returns {{subject: string, htmlBody: string, textBody: string}}
+ * - Omits internal/hidden fields
+ * - Uses friendly labels
+ * - Renders in a fixed order
  */
 function createEmailContent(data) {
-  const included = new Set(["form-name", "company", "bot-field", "honeypot"]);
-  const rows = [];
+  // Fields we never want to show in notifications
+  const OMIT = new Set([
+    "form-name", "company", "bot-field", "honeypot", // honeypots
+    "agree", "fieldOrder", "phoneRaw",               // UI/internal helpers
+    "referrer", "landingPage",                       // tracking
+    "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent" // UTMs
+  ]);
+
+  // Friendly labels
+  const LABELS = {
+    name: "Full Name",
+    email: "Email Address",
+    salesConsultant: "Sales Consultant",
+    phone: "Phone Number",
+
+    vin: "VIN",
+    mileage: "Mileage",
+    year: "Year",
+    make: "Make",
+    model: "Model",
+    trim: "Trim",
+
+    extColor: "Exterior Color",
+    intColor: "Interior Color",
+    keys: "Number of Keys",
+    title: "Title Status",
+    owners: "Number of Owners",
+
+    accident: "Accident",
+    accidentRepair: "Accident Repair",
+    warnings: "Warning Lights",
+
+    mech: "Mechanical Issues",
+    cosmetic: "Cosmetic Issues",
+    interior: "Interior Condition",
+    mods: "Aftermarket Parts / Mods",
+    smells: "Unusual Smells",
+    service: "Routine Services",
+
+    tires: "Tires",
+    brakes: "Brakes",
+    wear: "Other Wear Items"
+  };
+
+  // Preferred fixed order for rows
+  const ORDER = [
+    // Contact
+    "name", "email", "salesConsultant", "phone",
+    // Vehicle basics
+    "vin", "mileage", "year", "make", "model", "trim",
+    // Appearance
+    "extColor", "intColor",
+    // Ownership & title
+    "keys", "title", "owners",
+    // Accidents & warnings
+    "accident", "accidentRepair", "warnings",
+    // Condition
+    "mech", "cosmetic", "interior", "mods", "smells", "service",
+    // Wearables
+    "tires", "brakes", "wear"
+  ];
+
   const hasVal = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 
-  // Sort keys for consistent email layout
-  Object.keys(data).sort().forEach(k => {
-    if (included.has(k)) return;
-    const v = data[k];
-    if (hasVal(v)) {
-      rows.push([k, Array.isArray(v) ? v.join(", ") : String(v)]);
-    }
-  });
+  const rows = [];
 
-  const htmlEscape = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // 1) Add known fields in fixed order
+  for (const key of ORDER) {
+    if (key in data && !OMIT.has(key) && hasVal(data[key])) {
+      const val = Array.isArray(data[key]) ? data[key].join(", ") : String(data[key]);
+      rows.push([LABELS[key] || key, val]);
+    }
+  }
+
+  // 2) Append any extra fields that slipped in (but aren't omitted), sorted by key
+  const known = new Set(ORDER);
+  Object.keys(data)
+    .filter(k => !known.has(k) && !OMIT.has(k) && hasVal(data[k]))
+    .sort()
+    .forEach(k => {
+      const v = Array.isArray(data[k]) ? data[k].join(", ") : String(data[k]);
+      rows.push([LABELS[k] || k, v]);
+    });
+
+  // HTML/text render
+  const htmlEscape = (s) =>
+    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const htmlBody = `
-    <h2 style="margin:0 0 12px 0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;">New Trade-In Lead</h2>
+    <h2 style="margin:0 0 6px 0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;">New Trade-In Lead</h2>
+    <div style="margin:0 0 12px 0;color:#334155;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;">
+      ${(data.year || "")} ${(data.make || "")} ${(data.model || "")}
+    </div>
     <table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;">
-      ${rows.map(([k, v]) => `
+      ${rows.map(([label, val]) => `
         <tr>
-          <th align="left" style="text-transform:capitalize;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;font-size:14px;color:#111827;padding:6px 10px 6px 0;">${htmlEscape(k)}</th>
-          <td style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;font-size:14px;color:#111827;padding:6px 0;">${htmlEscape(v)}</td>
+          <th align="left" style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;font-size:14px;color:#111827;padding:6px 10px 6px 0;">${htmlEscape(label)}</th>
+          <td style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;font-size:14px;color:#111827;padding:6px 0;">${htmlEscape(val)}</td>
         </tr>
       `).join("")}
     </table>
   `;
 
-  const textBody = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
-  const subject = `New Trade-In Lead – ${data.year || ""} ${data.make || ""} ${data.model || ""}`.replace(/\s+/g, " ").trim();
+  const textBody = rows.map(([label, val]) => `${label}: ${val}`).join("\n");
+
+  // Subject: include name when present
+  const subject = `New Trade-In Lead – ${data.name ? `${data.name} – ` : ""}${(data.year || "")} ${(data.make || "")} ${(data.model || "")}`
+    .replace(/\s+/g, " ")
+    .trim();
 
   return { subject, htmlBody, textBody };
 }
@@ -154,9 +232,6 @@ async function processAttachments(files) {
       totalSize += size;
 
       return {
-        // *** THIS IS THE FIX ***
-        // The original code had `Buffer.from(buffer)`, which is incorrect.
-        // `buffer` is already a Buffer, so we just need to Base64-encode it.
         content: buffer.toString("base64"),
         filename: file.filename,
         type: file.type || "application/octet-stream",
@@ -169,7 +244,7 @@ async function processAttachments(files) {
   });
 
   const results = await Promise.all(fetchPromises);
-  return results.filter(Boolean); // Filter out any nulls from failed fetches/skips
+  return results.filter(Boolean);
 }
 
 /**
@@ -195,7 +270,6 @@ async function triggerBackupWebhook(data, files) {
       body: JSON.stringify(lead),
     });
   } catch (error) {
-    // Log but do not fail the function if the backup fails
     console.warn("Backup webhook failed:", error);
   }
 }
