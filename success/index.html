@@ -3,65 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title data-i18n="successTitle">Thanks! - Quirk Chevrolet Braintree</title>
+  <title data-i18n="successTitle">Thanks! - Quirk Ford</title>
   <link rel="stylesheet" href="/assets/styles.css" />
-  <style>
-    /* Watermark background for success page */
-    :root { --wm-opacity: 0.12; } /* tweak for lighter/darker effect */
-
-    body.has-watermark {
-      position: relative;
-      min-height: 100vh;
-    }
-
-    body.has-watermark::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background-image: url("/assets/quirk-lot.png");
-      background-repeat: no-repeat;
-      background-position: top center;
-      background-size: contain;   /* show whole lot image */
-      background-color: #fff;     /* fill behind transparent areas */
-      opacity: var(--wm-opacity);
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* Ensure the white card sits above watermark */
-    body.has-watermark main {
-      position: relative;
-      z-index: 1;
-    }
-
-    @media (max-width: 768px) {
-      :root { --wm-opacity: 0.10; }
-    }
-  </style>
 </head>
-<body class="has-watermark">
+<body
+  style="
+    min-height:100vh;
+    /* Darker overlay so the background image is muted */
+    background:
+      linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)),
+      url('/assets/quirk-lot.png') center / cover no-repeat fixed;
+  "
+>
   <main style="max-width:720px;margin:40px auto;background:#fff;padding:24px;
                border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,0.1)">
     <h1 style="text-align:center;margin:0 0 10px;color:#004a2f" data-i18n="successHeading">
       Thank you!
     </h1>
     <p style="text-align:center;font-size:16px" data-i18n="successMessage">
-      We received your trade-in details. A Quirk Chevrolet Braintree specialist will contact you shortly.
+      We received your trade-in details. A Quirk Ford specialist will contact you shortly.
     </p>
 
     <div style="display:flex;gap:10px;justify-content:center;margin-top:18px">
       <a class="spanish-btn" href="/" style="text-decoration:none" data-i18n="submitAnother">
         Submit another vehicle
       </a>
-      <a class="ghost-btn" href="https://www.quirkchevy.com" target="_blank" 
+      <a class="ghost-btn" href="https://www.quirkford.com" target="_blank" 
          rel="noopener noreferrer" style="text-decoration:none" data-i18n="backToDealer">
-        Back to Quirk Chevrolet Braintree
+        Back to Quirk Ford
       </a>
     </div>
 
     <!-- Logo inside same white card -->
     <div style="margin-top:32px; text-align:center;">
-      <a href="https://www.quirkchevy.com" target="_blank" rel="noopener noreferrer">
+      <a href="https://www.quirkford.com" target="_blank" rel="noopener noreferrer">
         <img src="/assets/quirkworks-new.jpg" alt="Quirk Works Logo"
              style="width:100%; max-width:720px; height:auto; display:block; margin:0 auto; cursor:pointer;" />
       </a>
