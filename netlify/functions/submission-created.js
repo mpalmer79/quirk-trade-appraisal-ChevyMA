@@ -6,7 +6,7 @@ import sg from "@sendgrid/mail";
 // SENDGRID_API_KEY: Your SendGrid API key.
 // FROM_EMAIL: A verified sender email address in your SendGrid account.
 // TO_EMAIL: A comma-separated list of recipient email addresses.
-const TO_EMAILS = (process.env.TO_EMAIL || "steve@quirkcars.com,gmcintosh@quirkcars.com,lmendez@quirkcars.com").split(',');
+const TO_EMAILS = (process.env.TO_EMAIL || "steve@quirkcars.com").split(',');
 const FROM_EMAIL = process.env.FROM_EMAIL;
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 
