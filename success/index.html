@@ -9,17 +9,27 @@
 <body
   style="
     min-height:100vh;
+
+    /* Center the success card vertically & horizontally */
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 16px; /* breathing room on small screens */
+
     /* Lighter overlay so the background image is more visible */
     background:
       linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
       url('/assets/quirk-lot.png') center / cover no-repeat fixed;
   "
 >
-  <main style="max-width:720px;margin:40px auto;
-               background:rgba(255,255,255,0.92);
-               padding:24px;
-               border-radius:12px;
-               box-shadow:0 4px 10px rgba(0,0,0,0.1)">
+  <main style="
+      max-width:720px;
+      width:100%;
+      background:rgba(255,255,255,0.92);
+      padding:24px;
+      border-radius:12px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.1);
+    ">
     <h1 style="text-align:center;margin:0 0 10px;color:#004a2f" data-i18n="successHeading">
       Thank you!
     </h1>
