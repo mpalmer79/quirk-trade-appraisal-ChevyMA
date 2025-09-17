@@ -45,8 +45,27 @@
       }
     }
   </style>
+
+  <!-- Watermark background (uses assets/quirk-lot3.webp) -->
+  <style>
+    :root { --wm-opacity: 0.45; } /* adjust 0.20 (lighter) … 0.50 (stronger) */
+
+    /* Put a soft, fixed watermark behind the whole page */
+    body.has-watermark { position: relative; background-color: #ffffff; }
+    body.has-watermark::before{
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: url("assets/quirk-lot3.webp") center / cover no-repeat;
+      opacity: var(--wm-opacity);
+      pointer-events: none;
+      z-index: 0; /* sits behind the content below */
+    }
+    /* Ensure the main form/content renders above the watermark */
+    #tradeForm, .toast { position: relative; z-index: 1; }
+  </style>
 </head>
-<body>
+<body class="has-watermark">
 
   <!-- 
     Final Version:
