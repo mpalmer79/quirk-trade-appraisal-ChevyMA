@@ -7,6 +7,44 @@
   <meta name="robots" content="noindex" />
   <link rel="preconnect" href="https://vpic.nhtsa.dot.gov" />
   <link rel="stylesheet" href="assets/styles.css?v=2" />
+
+  <!-- Mobile-only header layout fix -->
+  <style>
+    @media (max-width: 640px) {
+      /* Force the header to stack and center on mobile */
+      .header-title {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 8px;
+        /* in case the site stylesheet uses CSS Grid for desktop */
+        grid-template-columns: 1fr !important;
+      }
+      .header-title .branding {
+        width: 100%;
+        display: block !important;
+        margin: 0 auto !important;
+        text-align: center !important;
+        float: none !important;          /* kill any floats from desktop */
+      }
+      /* Make sure whatever is inside #quirkBrand centers nicely */
+      #quirkBrand,
+      #quirkBrand img,
+      #quirkBrand svg {
+        display: inline-block !important;
+        max-width: 220px;                 /* comfortable size on mobile */
+        width: 100%;
+        height: auto;
+        margin: 0 auto !important;
+      }
+      .header-title h1 {
+        margin: 0;                        /* tidy spacing under the logo */
+        line-height: 1.2;
+      }
+    }
+  </style>
 </head>
 <body>
 
