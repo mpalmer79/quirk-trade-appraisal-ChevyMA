@@ -217,3 +217,26 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
     max-width: 90% !important;
   }
 }
+/* Mobile-only: center the Spanish button and tidy the utility bar */
+@media (max-width: 640px) {
+  .utilitybar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;   /* centers children horizontally */
+    gap: 12px;
+  }
+
+  .utilitybar .left-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Center the “versión en español” button */
+  .utilitybar .spanish-btn,
+  .utilitybar #langToggle {
+    display: block;
+    margin: 0 auto;
+  }
+}
