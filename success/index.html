@@ -11,8 +11,8 @@
     body.success {
       min-height: 100vh;
       display: flex;
-      align-items: center;          /* vertical centering */
-      justify-content: center;      /* horizontal centering */
+      align-items: center;          /* vertical centering (desktop/tablet) */
+      justify-content: center;      /* horizontal centering (desktop/tablet) */
       padding: 40px 16px;           /* breathing room */
       /* Lighter overlay so the background image is more visible */
       background:
@@ -26,16 +26,38 @@
       padding: 24px;
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      margin: 40px auto;
     }
 
-    /* Mobile-only: move card near the top & increase card opacity slightly */
+    /* Shared button row styles (desktop default = side-by-side) */
+    .btnrow {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 18px;
+    }
+
+    /* Mobile-only: raise the card & stack full-width buttons */
     @media (max-width: 640px) {
       body.success {
         align-items: flex-start;  /* push the card toward the top */
-        padding-top: 16px;        /* small offset from the very top */
+        padding-top: 12px;        /* small breathing room from top */
       }
       main.success-card {
-        background: rgba(255,255,255,0.50); /* a touch more opaque on mobile */
+        margin: 6px auto 24px;            /* closer to the top on phones */
+        background: rgba(255,255,255,0.50); /* 50% white on mobile */
+        backdrop-filter: blur(1px);
+      }
+      .btnrow {
+        flex-direction: column;   /* stack buttons vertically */
+        align-items: stretch;     /* make them equal full width */
+      }
+      .btnrow a {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        margin: 0 !important;     /* defeat any theme margins */
       }
     }
   </style>
@@ -49,7 +71,7 @@
       We received your trade-in details. A Quirk Chevrolet specialist will contact you shortly.
     </p>
 
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px">
+    <div class="btnrow">
       <a class="spanish-btn" href="/" style="text-decoration:none" data-i18n="submitAnother">
         Submit another vehicle
       </a>
